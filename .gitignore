@@ -1,0 +1,15 @@
+# Project exclude paths
+/module01/target/
+/module01/target/scala-2.12/test-classes/
+/module02/target/
+/module02/target/scala-2.12/test-classes/
+/module03/target/
+/module03/target/scala-2.12/test-classes/
+/module04/target/
+/module04/target/scala-2.12/test-classes/
+/module05/target/
+/module05/target/scala-2.12/test-classes/
+/module06/target/
+/module06/target/scala-2.12/test-classes/
+/project/target/
+/target/
