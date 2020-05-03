@@ -16,54 +16,88 @@ class Module03 extends FunSpec with Matchers with SeveredStackTraces {
   // StringReverser should take a string and return the value of String.reverse
   // SeqReverser should take a Sequence and return the value of Seq.reverse
 
+  trait ReverserTrait {
+    type RType
+
+    def reverse(value: RType): RType
+
+    def canReverse = true
+  }
+
+  class BooleanReverser extends ReverserTrait {
+    override type RType = Boolean
+
+    override def reverse(value: RType): RType = !value
+  }
+
+  class StringReverser extends ReverserTrait {
+    override type RType = String
+
+    override def reverse(value: RType): RType = value.reverse
+  }
+
+  class SeqReverser extends ReverserTrait {
+    override type RType = Seq[_]
+
+    override def reverse(value: RType): RType = value.reverse
+  }
+
+  class IntReverser extends ReverserTrait {
+    override type RType = Int
+
+    override def canReverse = false
+
+    override def reverse(value: RType): RType = throw new IllegalStateException
+  }
+
   // uncomment the tests below to make sure the traits and classes work as expected
   describe("ReverserTrait") {
-    /*
-    describe ("through BooleanReverser") {
-      it ("should reverse Booleans to their logical not") {
+
+    describe("through BooleanReverser") {
+      it("should reverse Booleans to their logical not") {
         val boolReverse = new BooleanReverser
-        boolReverse.isInstanceOf[ReverserTrait] should be (true)
-        boolReverse.canReverse should be (true)
+        boolReverse.isInstanceOf[ReverserTrait] should be(true)
+        boolReverse.canReverse should be(true)
         assert(boolReverse.reverse(true) === false)
         assert(boolReverse.reverse(false) === true)
       }
     }
 
-    describe ("through StringReverser") {
-      it ("should reverse the order of strings") {
+    describe("through StringReverser") {
+      it("should reverse the order of strings") {
         val strReverse = new StringReverser
-        strReverse.isInstanceOf[ReverserTrait] should be (true)
-        strReverse.canReverse should be (true)
+        strReverse.isInstanceOf[ReverserTrait] should be(true)
+        strReverse.canReverse should be(true)
         assert(strReverse.reverse("reverse") === "esrever")
         assert(strReverse.reverse("Hello, World!") === "!dlroW ,olleH")
       }
     }
 
-    describe ("through SeqReverser") {
-      it ("should reverse the order of sequences") {
+    describe("through SeqReverser") {
+      it("should reverse the order of sequences") {
         val seqReverse = new SeqReverser
-        seqReverse.isInstanceOf[ReverserTrait] should be (true)
-        seqReverse.canReverse should be (true)
-        assert(seqReverse.reverse(List(1,2,3)) === List(3,2,1))
+        seqReverse.isInstanceOf[ReverserTrait] should be(true)
+        seqReverse.canReverse should be(true)
+        assert(seqReverse.reverse(List(1, 2, 3)) === List(3, 2, 1))
         assert(seqReverse.reverse(List("does", "it", "work")) === List("work", "it", "does"))
       }
-    }*/
+    }
 
 
     // now provide another implementation of ReverserTrait called IntReverser which reports false back to
     // the canReverse query, and throws an IllegalStateException if you try and reverse it
     // Uncomment the test below to make sure it works
 
-    /* describe ("through IntReverser") {
-      it ("should not allow reversal of an Int") {
+    describe("through IntReverser") {
+      it("should not allow reversal of an Int") {
         val intReverse = new IntReverser
-        intReverse.isInstanceOf[ReverserTrait] should be (true)
-        intReverse.canReverse should be (false)
+        intReverse.isInstanceOf[ReverserTrait] should be(true)
+        intReverse.canReverse should be(false)
         intercept[IllegalStateException] {
-          intReverse.reverse(6) should not be (6)  // it should throw an exception instead!
+          intReverse.reverse(6) should not be (6) // it should throw an exception instead!
         }
       }
-    }*/
+    }
   }
 
   // create a trait called Ammunition that has an abstract method, spent, that returns a Boolean
@@ -101,43 +135,151 @@ class Module03 extends FunSpec with Matchers with SeveredStackTraces {
   // so we can see when the blaster is empty. Loading the blaster with a charge, always returns true, even if it is
   // fully charged, but only allows a maximum of three shots still
 
+  trait Ammunition {
+    def spent: Boolean
+
+    val weight: Int
+  }
+
+  trait RangeWeapon {
+    type SuitableAmmunition <: Ammunition
+
+    def load(mun: SuitableAmmunition): Boolean
+
+    def shoot: Option[SuitableAmmunition]
+
+    def weight: Int
+  }
+
+  class Bullet extends Ammunition {
+    var fired = true
+
+    override def spent: Boolean = fired
+
+    override val weight: Int = 1
+  }
+
+  class Bolt extends Ammunition {
+    override def spent: Boolean = false
+
+    override val weight: Int = 3
+  }
+
+  class Charge extends Ammunition {
+    override def spent: Boolean = true
+
+    override val weight: Int = 0
+  }
+
+  class SixShooter extends RangeWeapon {
+    override type SuitableAmmunition = Bullet
+
+    var loads: List[SuitableAmmunition] = List.empty[SuitableAmmunition]
+
+    override def load(mun: SuitableAmmunition): Boolean = {
+      if (loads.length < 6) {
+        loads = loads :+ mun
+        true
+      } else
+        false
+    }
+
+    override def shoot: Option[SuitableAmmunition] = loads match {
+      case Nil =>
+        None
+      case head :: tail =>
+        loads = tail
+        Option(head)
+    }
+
+    override def weight: Int = 10 + loads.map(_.weight).fold(0)((a, b) => a + b)
+  }
+
+  class Crossbow extends RangeWeapon {
+    override type SuitableAmmunition = Bolt
+
+    var loads: List[SuitableAmmunition] = List.empty[SuitableAmmunition]
+
+    override def load(mun: SuitableAmmunition): Boolean = {
+      if (loads.length < 1) {
+        loads = loads :+ mun
+        true
+      } else
+        false
+    }
+
+    override def shoot: Option[SuitableAmmunition] = loads match {
+      case Nil =>
+        None
+      case head :: tail =>
+        loads = tail
+        Option(head)
+    }
+
+    override def weight: Int = 15 + loads.map(_.weight).fold(0)((a, b) => a + b)
+  }
+
+  class Blaster extends RangeWeapon {
+    override type SuitableAmmunition = Charge
+
+    var loads: List[SuitableAmmunition] = List.empty[SuitableAmmunition]
+
+    override def load(mun: SuitableAmmunition): Boolean = {
+      if (loads.length < 3) {
+        loads = loads ++ List.fill(3 - loads.length)(mun)
+      }
+      true
+    }
+
+    override def shoot(): Option[SuitableAmmunition] = loads match {
+      case Nil =>
+        None
+      case head :: tail =>
+        loads = tail
+        None
+    }
+
+    override def weight: Int = 5
+
+    def empty: Boolean = loads.isEmpty
+  }
 
   // Now uncomment the following helper method and tests to ensure compliance
-  /* def checkWeaponWeight(weapon: RangeWeapon, weight: Int) = {
+  def checkWeaponWeight(weapon: RangeWeapon, weight: Int) = {
     assert(weapon.weight === weight)
   }
 
-  describe ("A SixShooter") {
+  describe("A SixShooter") {
     val sixShooter = new SixShooter
-    it ("should start empty") {
-      sixShooter.shoot should be (None)
+    it("should start empty") {
+      sixShooter.shoot should be(None)
     }
 
-    it ("should load up to six times, and only fire as many bullets as it had") {
-      sixShooter.load(new Bullet) should be (true)
-      sixShooter.load(new Bullet) should be (true)
-      sixShooter.load(new Bullet) should be (true)
-      sixShooter.load(new Bullet) should be (true)
-      sixShooter.load(new Bullet) should be (true)
-      sixShooter.load(new Bullet) should be (true)
-      sixShooter.load(new Bullet) should be (false)
+    it("should load up to six times, and only fire as many bullets as it had") {
+      sixShooter.load(new Bullet) should be(true)
+      sixShooter.load(new Bullet) should be(true)
+      sixShooter.load(new Bullet) should be(true)
+      sixShooter.load(new Bullet) should be(true)
+      sixShooter.load(new Bullet) should be(true)
+      sixShooter.load(new Bullet) should be(true)
+      sixShooter.load(new Bullet) should be(false)
 
       // all bullets returned should be spent
-      sixShooter.shoot.get.spent should be (true)
-      sixShooter.shoot.get.spent should be (true)
-      sixShooter.shoot.get.spent should be (true)
-      sixShooter.shoot.get.spent should be (true)
-      sixShooter.shoot.get.spent should be (true)
-      sixShooter.shoot.get.spent should be (true)
-      sixShooter.shoot should be (None)
+      sixShooter.shoot.get.spent should be(true)
+      sixShooter.shoot.get.spent should be(true)
+      sixShooter.shoot.get.spent should be(true)
+      sixShooter.shoot.get.spent should be(true)
+      sixShooter.shoot.get.spent should be(true)
+      sixShooter.shoot.get.spent should be(true)
+      sixShooter.shoot should be(None)
     }
 
-    it ("should get heavier as you add bullets, and lighter as you shoot them") {
+    it("should get heavier as you add bullets, and lighter as you shoot them") {
       checkWeaponWeight(sixShooter, 10)
-      sixShooter.load(new Bullet) should be (true)
-      sixShooter.load(new Bullet) should be (true)
+      sixShooter.load(new Bullet) should be(true)
+      sixShooter.load(new Bullet) should be(true)
       checkWeaponWeight(sixShooter, 12)
-      sixShooter.load(new Bullet) should be (true)
+      sixShooter.load(new Bullet) should be(true)
       checkWeaponWeight(sixShooter, 13)
 
       sixShooter.shoot
@@ -152,32 +294,32 @@ class Module03 extends FunSpec with Matchers with SeveredStackTraces {
     } */
   }
 
-  describe ("A Crossbow") {
+  describe("A Crossbow") {
     val crossbow = new Crossbow
 
-    it ("should start empty") {
-      crossbow.shoot should be (None)
+    it("should start empty") {
+      crossbow.shoot should be(None)
     }
 
-    it ("should only load or shoot one bolt at a time") {
-      crossbow.load(new Bolt) should be (true)
-      crossbow.load(new Bolt) should be (false)
+    it("should only load or shoot one bolt at a time") {
+      crossbow.load(new Bolt) should be(true)
+      crossbow.load(new Bolt) should be(false)
 
       val theBolt = crossbow.shoot.get
-      theBolt.spent should be (false)
-      crossbow.shoot should be (None)
+      theBolt.spent should be(false)
+      crossbow.shoot should be(None)
 
-      crossbow.load(theBolt) should be (true) // re-use the same bolt, since we can
+      crossbow.load(theBolt) should be(true) // re-use the same bolt, since we can
       val nextBolt = crossbow.shoot.get
-      nextBolt.spent should be (false)
-      nextBolt should be (theBolt)
+      nextBolt.spent should be(false)
+      nextBolt should be(theBolt)
     }
 
-    it ("should get heavier when loaded and lighter when not") {
+    it("should get heavier when loaded and lighter when not") {
       checkWeaponWeight(crossbow, 15)
-      crossbow.load(new Bolt) should be (true)
+      crossbow.load(new Bolt) should be(true)
       checkWeaponWeight(crossbow, 18)
-      crossbow.load(new Bolt) should be (false)
+      crossbow.load(new Bolt) should be(false)
       checkWeaponWeight(crossbow, 18)
       crossbow.shoot
       checkWeaponWeight(crossbow, 15)
@@ -192,44 +334,44 @@ class Module03 extends FunSpec with Matchers with SeveredStackTraces {
     } */
   }
 
-  describe ("A Blaster") {
+  describe("A Blaster") {
     val blaster = new Blaster
 
-    it ("should start empty") {
-      blaster.empty should be (true)
+    it("should start empty") {
+      blaster.empty should be(true)
     }
 
-    it ("should be able to load as many times as you like, but still only give three shots") {
-      blaster.load(new Charge) should be (true)
-      blaster.empty should be (false)
-      blaster.shoot() should be (None)
-      blaster.empty should be (false)
-      blaster.shoot() should be (None)
-      blaster.empty should be (false)
-      blaster.shoot() should be (None)
-      blaster.empty should be (true)
+    it("should be able to load as many times as you like, but still only give three shots") {
+      blaster.load(new Charge) should be(true)
+      blaster.empty should be(false)
+      blaster.shoot() should be(None)
+      blaster.empty should be(false)
+      blaster.shoot() should be(None)
+      blaster.empty should be(false)
+      blaster.shoot() should be(None)
+      blaster.empty should be(true)
 
-      blaster.load(new Charge) should be (true)
-      blaster.load(new Charge) should be (true)
-      blaster.load(new Charge) should be (true)
-      blaster.load(new Charge) should be (true)
-      blaster.empty should be (false)
-      blaster.shoot() should be (None)
-      blaster.empty should be (false)
-      blaster.shoot() should be (None)
-      blaster.empty should be (false)
-      blaster.shoot() should be (None)
-      blaster.empty should be (true)
+      blaster.load(new Charge) should be(true)
+      blaster.load(new Charge) should be(true)
+      blaster.load(new Charge) should be(true)
+      blaster.load(new Charge) should be(true)
+      blaster.empty should be(false)
+      blaster.shoot() should be(None)
+      blaster.empty should be(false)
+      blaster.shoot() should be(None)
+      blaster.empty should be(false)
+      blaster.shoot() should be(None)
+      blaster.empty should be(true)
     }
 
-    it ("should not change weight depending on whether it is loaded or not") {
-      blaster.empty should be (true)
+    it("should not change weight depending on whether it is loaded or not") {
+      blaster.empty should be(true)
       checkWeaponWeight(blaster, 5)
-      blaster.load(new Charge) should be (true)
-      blaster.empty should be (false)
+      blaster.load(new Charge) should be(true)
+      blaster.empty should be(false)
       checkWeaponWeight(blaster, 5)
-      blaster.load(new Charge) should be (true)
-      blaster.empty should be (false)
+      blaster.load(new Charge) should be(true)
+      blaster.empty should be(false)
       checkWeaponWeight(blaster, 5)
     }
 
@@ -238,7 +380,7 @@ class Module03 extends FunSpec with Matchers with SeveredStackTraces {
       blaster.load(new Bullet)
       blaster.load(new Bolt)
     } */
-  }*/
+  }
 
   // Next, let's exercise our F bounded polymorphism chops. Alter the following class
   // so that it can be used in .sorted calls on a collection by implementing the

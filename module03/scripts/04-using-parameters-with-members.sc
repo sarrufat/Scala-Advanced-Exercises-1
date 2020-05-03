@@ -33,4 +33,5 @@ val a1: Apple = appleBowl.food
 val a2: appleBowl.FOOD = appleBowl.food
 
 // but does not compile:
-//val o1: orangeBowl.FOOD = appleBowl.food
+ val o1: orangeBowl.FOOD = orangeBowl.food
+// val o1: orangeBowl.FOOD = appleBowl.food

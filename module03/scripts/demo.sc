@@ -32,4 +32,23 @@ object To {
 
 To be or not to be
 
+trait CompareT[T] {
+  def >(other: T): Boolean
+  def <(other: T): Boolean
+}
 
+def genInsert[T <: CompareT[T]](item: T, rest: List[T]): List[T] = rest match {
+  case Nil =>
+    List(item)
+  case head:: _ if item < head =>
+    item :: rest
+  case head :: tail =>
+    head :: genInsert(item, tail)
+}
+
+def genSort[T <: CompareT[T]](xs: List[T]) : List[T] = xs match {
+  case Nil =>
+    Nil
+  case head:: tail =>
+    genInsert(head, genSort(tail))
+}
