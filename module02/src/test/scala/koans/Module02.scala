@@ -26,6 +26,7 @@ class Module02 extends KoanSuite with Matchers with SeveredStackTraces {
 
   // Cows and Pigs are examples of livestock
   case class Pig(name: String) extends Livestock
+
   case class Cow(name: String) extends Livestock
 
   // Cargo is some inanimate object that can be transported
@@ -33,6 +34,7 @@ class Module02 extends KoanSuite with Matchers with SeveredStackTraces {
 
   // and for cargo, we will deal exclusively with toothpicks and pianos
   case class Toothpick(name: String) extends Cargo
+
   case class Piano(name: String) extends Cargo
 
   // The first test is simply to provide a slick way to create an empty car of a given type
@@ -41,7 +43,12 @@ class Module02 extends KoanSuite with Matchers with SeveredStackTraces {
     // Put your implementation here inside the test to prevent conflicting with other tests.
     // Then uncomment the section below to test your implementation
 
-    /*
+    class Car[T <: TransportableItem]
+    object Car {
+      def empty[T <: TransportableItem]() = new Car[T]
+    }
+
+
     Car.empty[Cargo]
     Car.empty[Livestock]
 
@@ -49,7 +56,7 @@ class Module02 extends KoanSuite with Matchers with SeveredStackTraces {
     // of Transportable item, see the section on upper bounds to remind yourself how to do this
 
     assertDoesNotCompile("Car.empty[String]")
-    */
+
   }
 
   // The next test will require that you implement at least part of the functionality
@@ -68,8 +75,25 @@ class Module02 extends KoanSuite with Matchers with SeveredStackTraces {
   test("Empty Car should store items of the right type and access them by index") {
     // Put your implementation here inside the test to prevent conflicting with other tests.
     // Then uncomment the section below to test your implementation
+    case class Car[T <: TransportableItem](items: Vector[T]) {
 
-    /*
+      def add(item: T): Car[T] = Car[T](items :+ item)
+
+      def numberOfItems: Int = items.length
+
+      def item(n: Int): Option[T] = {
+        val rest = items.drop(n)
+        if (rest.isEmpty)
+          None
+        else
+          Option(rest.head)
+      }
+    }
+
+    object Car {
+      def empty[T <: TransportableItem]() =  Car[T](Vector[T]())
+    }
+
     val emptyCar = Car.empty[Cargo]
     emptyCar.numberOfItems should be (0)
     emptyCar.item(0) should be (None)
@@ -94,7 +118,7 @@ class Module02 extends KoanSuite with Matchers with SeveredStackTraces {
     assertDoesNotCompile(
       """val mixedCar = carWithToothpickAndPiano.add(Pig("Percival"))"""
     )
-    */
+
   }
 
   // Now see if you can make the Car covariant in its type parameter, so that
@@ -106,8 +130,25 @@ class Module02 extends KoanSuite with Matchers with SeveredStackTraces {
   test("Car should be covariant in its type parameter") {
     // Put your implementation here inside the test to prevent conflicting with other tests.
     // Then uncomment the section below to test your implementation
+    case class Car[+T <: TransportableItem](items: Vector[T]) {
 
-    /*
+      def add[M >: T <: TransportableItem](item: M): Car[M] = Car[M](items :+ item)
+
+      def numberOfItems: Int = items.length
+
+      def item(n: Int): Option[T] = {
+        val rest = items.drop(n)
+        if (rest.isEmpty)
+          None
+        else
+          Option(rest.head)
+      }
+    }
+
+    object Car {
+      def empty[T <: TransportableItem]() =  Car[T](Vector[T]())
+    }
+
     val emptyCar = Car.empty[Cargo]
     emptyCar.numberOfItems should be (0)
     emptyCar.item(0) should be (None)
@@ -138,7 +179,7 @@ class Module02 extends KoanSuite with Matchers with SeveredStackTraces {
     anyCar2.item(2).get should be (Pig("Percival"))
 
     assertDoesNotCompile("""val anyCar3 = anyCar2.add("Hello World, I am a string")""")
-    */
+
   }
 
   // Extra credit - refactor your Car so that the only two public parts are a
@@ -150,7 +191,32 @@ class Module02 extends KoanSuite with Matchers with SeveredStackTraces {
     // Put your implementation here inside the test to prevent conflicting with other tests.
     // Then uncomment the section below to test your implementation
 
-    /*
+    abstract trait  Car[+T <: TransportableItem] {
+      def items: Vector[T]
+      def add[M >: T <: TransportableItem](item: M): Car[M]
+      def numberOfItems: Int
+      def item(n: Int): Option[T]
+    }
+
+
+    object Car {
+      private case class PCar[+T <: TransportableItem](items: Vector[T])  extends Car[T] {
+
+        def add[M >: T <: TransportableItem](item: M): Car[M] = PCar[M](items :+ item)
+
+        def numberOfItems: Int = items.length
+
+        def item(n: Int): Option[T] = {
+          val rest = items.drop(n)
+          if (rest.isEmpty)
+            None
+          else
+            Option(rest.head)
+        }
+      }
+     def empty[T <: TransportableItem](): Car[T] =  PCar[T](Vector[T]())
+    }
+
     val emptyCar = Car.empty[Cargo]
     emptyCar.numberOfItems should be (0)
     emptyCar.item(0) should be (None)
@@ -176,22 +242,22 @@ class Module02 extends KoanSuite with Matchers with SeveredStackTraces {
 
     // still should not be able to put non TransportableItems into a car
     assertDoesNotCompile("""val anyCar3 = anyCar.add("Hello World, I am a string")""")
-    */
+
   }
 
   test("A Dock should be able to handle all cargo of a more specific type than it is defined on") {
     // in this example, Ship's type param is invariant, the point is to *not* change the variance of Ship, but instead
     // to change the variance of the Dock definition below it!
-    case class Ship[T <: TransportableItem](items: Seq[T])
+    case class Ship[+T <: TransportableItem](items: Seq[T])
 
-    class Dock[T <: TransportableItem] {
-      def unload(ship: Ship[T]): Seq[T] = ship.items
+    class Dock[-T <: TransportableItem] {
+      def unload[M <: T](ship: Ship[M]): Seq[M] = ship.items
     }
 
     // if we have a Dock for toothpicks, it should unload a ship loaded with toothpicks
     val toothpickDock = new Dock[Toothpick]
     val toothpickShip: Ship[Toothpick] = Ship(Seq(Toothpick("tp1"), Toothpick("tp2")))
-    toothpickDock.unload(toothpickShip) should be (toothpickShip.items)
+    toothpickDock.unload(toothpickShip) should be(toothpickShip.items)
 
     // now for a trickier one, you will need to alter the above Dock definition to make this work
     // A livestock dock should be able to unload any livestock, be it pigs or cows or a mix
@@ -200,23 +266,23 @@ class Module02 extends KoanSuite with Matchers with SeveredStackTraces {
     val cowShip: Ship[Cow] = Ship(Seq(Cow("Bessie"), Cow("Daisy")))
     val mixedLivestockShip: Ship[Livestock] = Ship(Seq(Pig("Porky"), Pig("Perkins"), Cow("Bessie"), Cow("Daisy")))
 
-    livestockDock.unload(mixedLivestockShip) should be (mixedLivestockShip.items)  // that's the easy one, but what about the others?
+    livestockDock.unload(mixedLivestockShip) should be(mixedLivestockShip.items) // that's the easy one, but what about the others?
 
     // Uncomment the tests below and then fix the variance and bounds of Dock definition to make this compile/pass
-/*
-    livestockDock.unload(pigShip) should be (pigShip.items)
-    livestockDock.unload(cowShip) should be (cowShip.items)
 
-    // and that means a dock for any transportable item should handle anything:
-    // Note how the returned sequences are the same type as the ship even though the dock type is more generic, neat huh?
-    val transportableItemDock = new Dock[TransportableItem]
-    val toothpicksReceived: Seq[Toothpick] = transportableItemDock.unload(toothpickShip)
-    val livestockReceived: Seq[Livestock] = transportableItemDock.unload(mixedLivestockShip)
-    val pigsReceived: Seq[Pig] = transportableItemDock.unload(pigShip)
+        livestockDock.unload(pigShip) should be (pigShip.items)
+        livestockDock.unload(cowShip) should be (cowShip.items)
 
-    toothpicksReceived should be (toothpickShip.items)
-    livestockReceived should be (mixedLivestockShip.items)
-    pigsReceived should be (pigShip.items)
-*/
+        // and that means a dock for any transportable item should handle anything:
+        // Note how the returned sequences are the same type as the ship even though the dock type is more generic, neat huh?
+        val transportableItemDock = new Dock[TransportableItem]
+        val toothpicksReceived: Seq[Toothpick] = transportableItemDock.unload(toothpickShip)
+        val livestockReceived: Seq[Livestock] = transportableItemDock.unload(mixedLivestockShip)
+        val pigsReceived: Seq[Pig] = transportableItemDock.unload(pigShip)
+
+        toothpicksReceived should be (toothpickShip.items)
+        livestockReceived should be (mixedLivestockShip.items)
+        pigsReceived should be (pigShip.items)
+
   }
 }
