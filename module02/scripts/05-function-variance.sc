@@ -27,8 +27,8 @@ describeAnApple(juicyFruit)
 val bumpyOrange: Orange => Texture =
   orange => Texture(s"This ${orange.name} is bumpy")
 
-def describeAFruit(fn: Fruit => Description) = fn(Apple("Fuji"))
+def describeAFruit(fn: Orange => Description) = fn(Orange("Fuji"))
 describeAFruit(juicyFruit)
 
-// describeAFruit(bumpyOrange)
+describeAFruit(bumpyOrange)
 
