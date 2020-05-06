@@ -33,8 +33,13 @@ class Module06 extends FunSuite with Matchers with StopOnFirstFailure with Sever
   // can't do that here. If you want to try, move the ReverseAll class, and all the Reversable
   // trait and implicit objects to the bottom of the file outside
   // of any other class, and extend AnyVal there
+implicit class ReverseAll[T: Reversable](item: T) {
+    def reverseIt: T = {
+      val reversable = implicitly[Reversable[T]]
+      reversable.reverse(item)
+    }
+  }
 
-  /*
   test("reverseAll on a Sequence of Reversables should reverse the whole seq, and each item inside") {
     List(123, 456, 789).reverseIt should be (List(987, 654, 321))
     List("Hello", "Old", "Bean").reverseIt should be (List("naeB", "dlO", "olleH"))
@@ -46,7 +51,7 @@ class Module06 extends FunSuite with Matchers with StopOnFirstFailure with Sever
       "List(2.0, 4.0, 5.0).reverseIt"
     }
   }
-  */
+
 
   // Complex numbers with implicits next
 
@@ -68,6 +73,12 @@ class Module06 extends FunSuite with Matchers with StopOnFirstFailure with Sever
     override def hashCode() = (this.r * this.i).toInt
   }
 
+  object Complex {
+    implicit def intToComplex(i: Int): Complex = new Complex(i.toDouble, 0.0)
+    implicit def doubeToComplex(d: Double): Complex = new Complex(d, 0.0)
+
+  }
+
   test("Complex number addition and subtraction") {
     val n1 = new Complex(5.0, 2.0)
     val n2 = new Complex(6.0, -1.0)
@@ -81,13 +92,13 @@ class Module06 extends FunSuite with Matchers with StopOnFirstFailure with Sever
     // OK - the above lines work - no surprise there, but can you get the following lines to compile
     // after you uncomment them, using implicit definitions?
 
-    /*
+
     n1 + 1 should be (new Complex(6.0, 2.0))
     n2 - 3.0 should be (new Complex(3.0, -1.0))
 
     5.5 + n1 should be (new Complex(10.5, 2.0))
     -3 + n2 should be (new Complex(3.0, -1.0))
-    */
+
   }
 
   // Returning to our list of cars from earlier, implement an implicit Ordering for car so that
@@ -95,6 +106,11 @@ class Module06 extends FunSuite with Matchers with StopOnFirstFailure with Sever
 
   case class Car(name: String, year: Int, engineSizeCCs: Int)
 
+  implicit object CarOredring extends Ordering[Car] {
+    override def compare(x: Car, y: Car): Int = {
+      (x.year - y.year) * 10000 + (x.engineSizeCCs - y.engineSizeCCs)
+    }
+  }
 
   test ("Compile and sort cars correctly") {
     val car1 = Car("Grood", 1965, 1800)
@@ -106,6 +122,6 @@ class Module06 extends FunSuite with Matchers with StopOnFirstFailure with Sever
     val cars = Vector(car1, car2, car3, car4, car5)
 
     // uncomment below to test your Ordering
-    // cars.sorted should be (Vector(car4, car3, car1, car2, car5))
+    cars.sorted should be (Vector(car4, car3, car1, car2, car5))
   }
 }
