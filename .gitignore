@@ -12,5 +12,5 @@
 /module06/target/
 /module06/target/scala-2.12/test-classes/
 /project/target/
-/target/
+**/target/
 /.idea/
