@@ -3,21 +3,32 @@
 
 package koans
 
-import org.scalatest.Matchers
-import scala.collection._
-import org.scalatest.{FunSuite, SeveredStackTraces}
-import support.StopOnFirstFailure
+import java.lang
 
-import scala.util.control.NonFatal
+import koans.support.StopOnFirstFailure
+import org.scalatest.{FunSuite, Matchers, SeveredStackTraces}
+
+import scala.collection._
+import scala.util.{Failure, Success, Try}
 
 class Module08 extends FunSuite with Matchers with StopOnFirstFailure with SeveredStackTraces {
 
-  case class Passenger(name: String, cellPhoneNumber: String)
-  case class Carriage(passengers: List[Passenger])
-  case class Train(name: String, carriages: List[Carriage])
-  case class Route(name: String, activeTrain: Train)
+  case class Passenger(name: String, cellPhoneNumber: Option[String])
 
-  test ("Get deep list of optional fields") {
+  case class Carriage(passengers: List[Passenger])
+
+  case class Train(name: String, carriages: List[Carriage])
+
+  case class Route(name: String, activeTrain: Option[Train])
+
+  object Passenger {
+
+    import scala.language.implicitConversions
+
+    implicit def cellToOption(cell: String): Option[String] = Option(cell)
+  }
+
+  test("Get deep list of optional fields") {
     // find any cell phone numbers provided for all customers on a given track. Note that for any given
     // route, there may or may not be an active train, for that train there will be a sequence of carriages,
     // int the carriages there will be a list of passengers, and each passenger may, or may not,
@@ -29,20 +40,21 @@ class Module08 extends FunSuite with Matchers with StopOnFirstFailure with Sever
     // will need to change the testSetup function a little as well for the new data representation.
 
     def testSetup(): Seq[Route] = {
+      import Passenger._
       val route1 = Route("Glen Gach to Glen Pach",
-        Train("The Flying Scotsman",
-          List(Carriage(List(Passenger("Rob Roy", "121-212-1212"), Passenger("Connor McCleod", null))),
-               Carriage(List(Passenger("Joey McDougall", "454-545-4545"))))
+        Option(Train("The Flying Scotsman",
+          List(Carriage(List(Passenger("Rob Roy", "121-212-1212"), Passenger("Connor McCleod", None))),
+            Carriage(List(Passenger("Joey McDougall", "454-545-4545")))))
         )
       )
 
-      val route2 = Route("Defuncto 1", null)
+      val route2 = Route("Defuncto 1", None)
 
       val route3 = Route("Busy Route of Luddites",
-        Train("The Tech Express",
-          List(Carriage(List(Passenger("Ug", null), Passenger("Glug", null))),
-               Carriage(Nil),
-               Carriage(List(Passenger("Smug", "323-232-3232"))))
+        Option(Train("The Tech Express",
+          List(Carriage(List(Passenger("Ug", None), Passenger("Glug", None))),
+            Carriage(Nil),
+            Carriage(List(Passenger("Smug", "323-232-3232")))))
         )
       )
 
@@ -50,41 +62,44 @@ class Module08 extends FunSuite with Matchers with StopOnFirstFailure with Sever
     }
 
     def allCellNumbersForPassengers(routes: Seq[Route]): Seq[String] = {
-      val cellNumbers = mutable.ListBuffer.empty[String]
-      for (route <- routes) {
-        if (route.activeTrain != null) {
-          val train = route.activeTrain
-          for (carriage <- train.carriages) {
-            for (passenger <- carriage.passengers) {
-              if (passenger.cellPhoneNumber != null) cellNumbers += passenger.cellPhoneNumber
-            }
-          }
-        }
+      for {
+        route <- routes
+        train <- route.activeTrain.toSeq
+        carriage <- train.carriages
+        passenger <- carriage.passengers
+        cell <- passenger.cellPhoneNumber
+      } yield {
+        cell
       }
-      cellNumbers
     }
 
     // now do the actual test
     val cellList = allCellNumbersForPassengers(testSetup)
 
-    cellList.size should be (3)
-    cellList should contain ("121-212-1212")
-    cellList should contain ("454-545-4545")
-    cellList should contain ("323-232-3232")
+    cellList.size should be(3)
+    cellList should contain("121-212-1212")
+    cellList should contain("454-545-4545")
+    cellList should contain("323-232-3232")
   }
 
 
   test("Count the vowels") {
     // write an idiomatic scala method to count the vowels in a given string so that the tests below pass.
     def countVowels(str: String): Int = {
-      // fill this in with something real
-      0
+      str.toList match {
+        case Nil =>
+          0
+        case head :: tail if "aeiou".contains(head.toLower) =>
+          1 + countVowels(tail.mkString)
+        case _ :: tail =>
+          countVowels(tail.mkString)
+      }
     }
 
-    countVowels("countVowels") should be (4)
-    countVowels("are you feeling OK?") should be (8)
-    countVowels("aEIoU") should be (5)
-    countVowels("L33t Sp3@k") should be (0)
+    countVowels("countVowels") should be(4)
+    countVowels("are you feeling OK?") should be(8)
+    countVowels("aEIoU") should be(5)
+    countVowels("L33t Sp3@k") should be(0)
   }
 
   /*
@@ -115,26 +130,77 @@ class Module08 extends FunSuite with Matchers with StopOnFirstFailure with Sever
    * Then, uncomment the tests below and get them to work.
    */
 
-  /*test("MaybeError work flow") {
+  abstract class MaybeError[A] {
+    // def _value: Option[A]
+
+    def value: A = _state match {
+      case Right(v) => v
+      case _ => throw new IllegalStateException
+    }
+
+    var _state: String Either A = Left("undefined error")
+
+    def map[B](f: A => B): MaybeError[B] = {
+      _state match {
+        case Right(v) =>
+          Try {
+            f(v)
+          } match {
+            case Success(value) =>
+              MaybeError.Value(value)
+            case Failure(exception) =>
+              //       _state = Left(exception.getMessage)
+              MaybeError.Error(exception.toString)
+          }
+        case Left(err) => MaybeError.Error(err)
+      }
+    }
+
+    def error: Option[String] = _state match {
+      case Right(value) =>
+        None
+      case Left(msg) =>
+        Option(msg)
+    }
+
+    override def toString: String = _state match {
+      case Right(v) => s"Value($v)"
+      case Left(m) => s"Error($m)"
+    }
+  }
+
+  object MaybeError {
+    def Value[A](v: A): MaybeError[A] = new MaybeError[A] {
+      _state = Right(v)
+    }
+
+    def Error[A](msg: String): MaybeError[A] = new MaybeError[A] {
+      _state = Left(msg)
+    }
+  }
+
+  test("MaybeError work flow") {
     val i1 = MaybeError.Value("10")
     val i2 = i1.map(v => v.toInt)
     val i3 = i2.map(v => v * 3)
-    i1.toString should be ("Value(10)")
-    i2.toString should be ("Value(10)")
-    i3.toString should be ("Value(30)")
-    i3.error should be (None)
-    i3.value should be (30)
+    i1.toString should be("Value(10)")
+    i2.toString should be("Value(10)")
+    i3.toString should be("Value(30)")
+    i3.error should be(None)
+    i3.value should be(30)
 
     // now for a broken workflow
     val n1 = MaybeError.Value("hello")
     val n2 = n1.map(v => v.toInt)
     val n3 = n2.map(v => v * 3)
-    n1.toString should be ("Value(hello)")
-    n2.toString should be ("Error(java.lang.NumberFormatException: For input string: \"hello\")")
-    n3.toString should be ("Error(java.lang.NumberFormatException: For input string: \"hello\")")
-    n3.error should be (Some("java.lang.NumberFormatException: For input string: \"hello\""))
-    intercept[IllegalStateException] { n3.value }
-  }*/
+    n1.toString should be("Value(hello)")
+    n2.toString should be("Error(java.lang.NumberFormatException: For input string: \"hello\")")
+    n3.toString should be("Error(java.lang.NumberFormatException: For input string: \"hello\")")
+    n3.error should be(Some("java.lang.NumberFormatException: For input string: \"hello\""))
+    intercept[IllegalStateException] {
+      n3.value
+    }
+  }
 
   // What you just did with constructing this work flow for MaybeError has a larger, scarier name in the Scala
   // world. You have probably heard it and wondered what it is. Can you name it? Well, you just wrote one...
@@ -150,33 +216,42 @@ class Module08 extends FunSuite with Matchers with StopOnFirstFailure with Sever
   // if numbers greater than 4 or less than 1 exist, the function should return false
   // if the list is not complete, or has duplicates, the function should return false
 
-  def isGood(numberRow: Seq[Int]): Boolean = false  // you need to replace this with a real function
+  object SudokuConf {
+    implicit val boardSize = 4
+  }
+
+  import SudokuConf._
+
+  def isGood(numberRow: Seq[Int])(implicit bs: Int): Boolean = {
+    val nseq = (1 to bs)
+    nseq.forall(numberRow.contains(_)) && numberRow.forall(nseq.contains(_))
+  }
 
   test("isGood function works") {
     // isGood should pass all of these tests
-    isGood(Nil) should be (false)
-    isGood(List(1,2,3,4)) should be (true)
-    isGood(List(1)) should be (false)
-    isGood(List(1,2,2,4)) should be (false)
-    isGood(List(4,1,3,2)) should be (true)
-    isGood(List(3,2,1)) should be (false)
-    isGood(List(1,2,3,5)) should be (false)
-    isGood(List(0,2,3,4)) should be (false)
+    isGood(Nil) should be(false)
+    isGood(List(1, 2, 3, 4)) should be(true)
+    isGood(List(1)) should be(false)
+    isGood(List(1, 2, 2, 4)) should be(false)
+    isGood(List(4, 1, 3, 2)) should be(true)
+    isGood(List(3, 2, 1)) should be(false)
+    isGood(List(1, 2, 3, 5)) should be(false)
+    isGood(List(0, 2, 3, 4)) should be(false)
   }
 
   // next, we need a transpose function that given a rectangular seq of seq of ints, transposes that rectangle
   // so that columns become rows and rows become columns. It should pass the following tests
 
-  def transpose(matrix: Seq[Seq[Int]]): Seq[Seq[Int]] = matrix   // again, replace this
+  def transpose(matrix: Seq[Seq[Int]]): Seq[Seq[Int]] = matrix.transpose // again, replace this
 
   test("transpose should, well, transpose matrices") {
-    transpose(Nil) should be (Nil)
-    transpose(Seq(Seq(1))) should be (Seq(Seq(1)))
-    transpose(Seq(Seq(1,2))) should be (Seq(Seq(1),Seq(2)))
-    transpose(Seq(Seq(1,2), Seq(3,4), Seq(5,6), Seq(7,8))) should be (Seq(Seq(1,3,5,7), Seq(2,4,6,8)))
-    transpose(Seq(Seq(1,2,3), Seq(4,5,6), Seq(7,8,9))) should be (Seq(Seq(1,4,7), Seq(2,5,8), Seq(3,6,9)))
+    transpose(Nil) should be(Nil)
+    transpose(Seq(Seq(1))) should be(Seq(Seq(1)))
+    transpose(Seq(Seq(1, 2))) should be(Seq(Seq(1), Seq(2)))
+    transpose(Seq(Seq(1, 2), Seq(3, 4), Seq(5, 6), Seq(7, 8))) should be(Seq(Seq(1, 3, 5, 7), Seq(2, 4, 6, 8)))
+    transpose(Seq(Seq(1, 2, 3), Seq(4, 5, 6), Seq(7, 8, 9))) should be(Seq(Seq(1, 4, 7), Seq(2, 5, 8), Seq(3, 6, 9)))
     intercept[IllegalArgumentException] {
-      transpose(Seq(Seq(1,2,3), Seq(4,5,6,7)))
+      transpose(Seq(Seq(1, 2, 3), Seq(4, 5, 6, 7)))
     }
   }
 
@@ -200,27 +275,37 @@ class Module08 extends FunSuite with Matchers with StopOnFirstFailure with Sever
   // and indexing into the list. Hint, you may want to use your
   // transpose function above, along with the built in functions on Seq to split up the lists
 
-  def group2x2(board: Seq[Seq[Int]]): Seq[Seq[Int]] = board   // And, replace this too
+  def group2x2(board: Seq[Seq[Int]])(implicit bs: Int): Seq[Seq[Int]] = {
+    board.size == bs && board.forall(_.size == bs) match {
+      case false =>
+        throw new lang.IllegalArgumentException
+      case true =>
+        val s1 = board.map( _.grouped(bs/2).toList)
+        val row1 = s1.map(row => row.head).flatten
+        val row2 = s1.map(_.tail.flatten).flatten
+        row1.grouped(bs).toList.zip(row2.grouped(bs).toList).map(t => t._1 ++ t._2).flatten.grouped(bs).toList
+    }
+  } // And, replace this too
 
   test("group2x2 should do its job") {
     intercept[IllegalArgumentException] {
       group2x2(Nil)
     }
     intercept[IllegalArgumentException] {
-      group2x2(Seq(Seq(1,2,3,4), Seq(5,6,7,8), Seq(9,10,11,12)))
+      group2x2(Seq(Seq(1, 2, 3, 4), Seq(5, 6, 7, 8), Seq(9, 10, 11, 12)))
     }
     intercept[IllegalArgumentException] {
-      group2x2(Seq(Seq(1,2,3), Seq(5,6,7), Seq(9,10,11), Seq(13,14,15)))
+      group2x2(Seq(Seq(1, 2, 3), Seq(5, 6, 7), Seq(9, 10, 11), Seq(13, 14, 15)))
     }
     intercept[IllegalArgumentException] {
-      group2x2(Seq(Seq(1,2,3,4), Seq(5,6,7,8), Seq(9,10,11), Seq(13,14,15,16)))
+      group2x2(Seq(Seq(1, 2, 3, 4), Seq(5, 6, 7, 8), Seq(9, 10, 11), Seq(13, 14, 15, 16)))
     }
 
-    group2x2(Seq(Seq(1,2,3,4), Seq(5,6,7,8), Seq(9,10,11,12), Seq(13,14,15,16))) should be (
-      Seq(Seq(1,2,5,6), Seq(3,4,7,8), Seq(9,10,13,14), Seq(11,12,15,16)))
+    group2x2(Seq(Seq(1, 2, 3, 4), Seq(5, 6, 7, 8), Seq(9, 10, 11, 12), Seq(13, 14, 15, 16))) should be(
+      Seq(Seq(1, 2, 5, 6), Seq(3, 4, 7, 8), Seq(9, 10, 13, 14), Seq(11, 12, 15, 16)))
 
-    group2x2(Seq(Seq(1,2,1,2), Seq(1,2,1,2), Seq(1,2,1,2), Seq(1,2,1,2))) should be (
-      Seq(Seq(1,2,1,2), Seq(1,2,1,2), Seq(1,2,1,2), Seq(1,2,1,2)))
+    group2x2(Seq(Seq(1, 2, 1, 2), Seq(1, 2, 1, 2), Seq(1, 2, 1, 2), Seq(1, 2, 1, 2))) should be(
+      Seq(Seq(1, 2, 1, 2), Seq(1, 2, 1, 2), Seq(1, 2, 1, 2), Seq(1, 2, 1, 2)))
   }
 
   // Extra credit
@@ -228,5 +313,5 @@ class Module08 extends FunSuite with Matchers with StopOnFirstFailure with Sever
   // a simplified or isolated version of) it here. Write some tests to exercise it, then see if you can sweep
   // through it and apply style improvements on the code. Having a good set of tests will ensure that your
   // improved style doesn't actually break anything
-  
+
 }

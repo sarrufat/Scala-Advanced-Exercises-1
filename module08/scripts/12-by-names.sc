@@ -14,22 +14,22 @@ fruitLoop(x < 10) {
   x += 1
 }
 
-case class FruitLoopStep(p: Boolean, fn: Unit)
+case class FruitLoopStep(p:() => Boolean, fn:() => Unit)
 
 @tailrec
 def fruitLoopInner(fl: FruitLoopStep): Unit = {
-  if (fl.p) {
-    fl.fn
+  if (fl.p()) {
+    fl.fn()
     fruitLoopInner(fl)
   }
 }
 
-def fruit(p: => Boolean)(fn: => Unit) =
-  fruitLoopInner(FruitLoopStep(p, fn))
+def fruit(p: => Boolean)(fn: => Unit): Unit =
+  fruitLoopInner(FruitLoopStep(() => p, () => fn))
 
 var i = 0
 // if we change the test to < 1 now?
-fruit(i < 0) {
+val r = fruit(i < 100) {
   println(i * i)
   i += 1
 }

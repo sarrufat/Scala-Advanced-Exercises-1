@@ -11,8 +11,18 @@ def fibs(ct: Int): Seq[Int] = {
   }
 }
 
-fibs(10)
+def fibs2(ct: Int): Seq[Int] = {
+  @tailrec
+  def ifib(ct: Int, acc: Seq[Int]): Seq[Int] = {
+    if (ct == 1) acc
+    else ifib(ct - 1,  acc.take(2).sum +: acc)
+  }
 
+  ifib(ct, Seq(1, 1)).reverse
+}
+
+fibs(20)
+fibs2(20)
 def facts(ct: Int): Seq[Long] = {
   var f = 1L
   for (i <- 1 to ct) yield {
