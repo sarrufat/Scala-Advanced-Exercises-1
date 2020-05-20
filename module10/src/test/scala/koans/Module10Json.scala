@@ -42,16 +42,41 @@ class Module10Json extends KoanSuite with Matchers with SeveredStackTraces {
     CD("Alright, Still", "Lily Allen", 2007, 46)
   ))
 
-  test ("It should serialize a library full of items out to a file, and serialize it back in again") {
+  implicit val bookJsonFormat: Format[Book] = Json.format[Book]
+  implicit val journalJsonFormat: Format[Journal] = Json.format[Journal]
+  implicit val dvdJsonFormat: Format[DVD] = Json.format[DVD]
+  implicit val cdJsonFormat: Format[CD] = Json.format[CD]
+
+  implicit object itemFormat extends Format[Item] {
+    override def writes(o: Item): JsValue = o match {
+      case cd: CD =>
+        cdJsonFormat.writes(cd)
+      case book: Book =>
+        bookJsonFormat.writes(book)
+      case j: Journal =>
+        journalJsonFormat.writes(j)
+      case dvd: DVD =>
+        dvdJsonFormat.writes(dvd)
+    }
+
+    override def reads(json: JsValue): JsResult[Item] = {
+      val opt = json.asOpt[Book].orElse(json.asOpt[Journal]).orElse(json.asOpt[DVD]).orElse(json.asOpt[CD])
+      opt.map(item => JsSuccess(item)).getOrElse(JsError("Could not parse Item from JSON"))
+    }
+  }
+
+  implicit val libraryJsonFormat: Format[Library] = Json.format[Library]
+
+  test("It should serialize a library full of items out to a file, and serialize it back in again") {
     // uncomment below to test your serializers
-    /*
+
     val jsonLibraryString = Json.prettyPrint(Json.toJson(library))
 
     // if you're feeling brave, uncomment this (but the strings will need to match exactly!)
     jsonLibraryString should be (compareString)
 
     Json.parse(jsonLibraryString).as[Library] should be (library)
-    */
+
   }
 
   val compareString =
